@@ -1,65 +1,21 @@
 #!/bin/sh
 
-# config caddy
-mkdir -p /usr/share/caddy
-wget -O /usr/share/caddy/index.html https://raw.githubusercontent.com/caddyserver/dist/master/welcome/index.html
-cat << EOF > /etc/caddy/Caddyfile
-:$PORT
-root * /usr/share/caddy
-file_server
-
-@websocket_ss {
-header Connection *Upgrade*
-header Upgrade    websocket
-path $SSPATH
-}
-reverse_proxy @websocket_ss 127.0.0.1:1234
-
-@websocket_gost {
-header Connection *Upgrade*
-header Upgrade    websocket
-path $GOSTPATH
-}
-reverse_proxy @websocket_gost 127.0.0.1:2234
-
-@websocket_brook {
-header Connection *Upgrade*
-header Upgrade    websocket
-path $BROOKPATH
-}
-reverse_proxy @websocket_brook 127.0.0.1:3234
-
-@websocket_v2ray {
-header Connection *Upgrade*
-header Upgrade    websocket
-path $V2RAYPATH
-}
-reverse_proxy @websocket_v2ray 127.0.0.1:4234
-EOF
-
-# config v2ray
-cat << EOF > /v2ray.json
-{
-    "inbounds": 
-    [
-        {
-            "port": 4234,"listen": "127.0.0.1","protocol": "vless",
-            "settings": {"clients": [{"id": "$UUID"}],"decryption": "none"},
-            "streamSettings": {"network": "ws","wsSettings": {"path": "$V2RAYPATH"}}
-        }
-    ],
-    "outbounds": [{"protocol": "freedom"}]
-}	
-EOF
-
-# start tor v2ray
-nohup tor &
-caddy run --config /etc/caddy/Caddyfile --adapter caddyfile &
-/usr/bin/v2ray/v2ray -config /usr/bin/v2ray/config.json
+# configs
+mkdir -p /etc/caddy/ /usr/share/caddy && wget $CADDYIndexPage -O /usr/share/caddy/index.html 
+unzip -qo /usr/share/caddy/index.html -d /usr/share/caddy/ && mv /usr/share/caddy/*/* /usr/share/caddy/
+[[ "$ROBOTS" == "true" ]] && wget -qO- $ROBOTSCONFIG >/usr/share/caddy/robots.txt
+wget -qO- $CADDYCONFIG | sed -e "1c :$PORT" -e "s/\$SSPATH$/\\$SSPATH/" -e "s/\$GOSTPATH$/\\$GOSTPATH/" -e "s/\$BROOKPATH$/\\$BROOKPATH/" -e "s/\$VMESSPATH$/\\$VMESSPATH/" -e "s/\$VLESSPATH$/\\$VLESSPATH/" >/etc/caddy/Caddyfile
+wget -qO- $V2RAYCONFIG | sed -e "s/\$AUUID/$AUUID/g" -e "s/\$VMESSPATH/\\$VMESSPATH/" -e "s/\$VLESSPATH/\\$VLESSPATH/" >/v2ray.json
 
 # start
-caddy run --config /etc/caddy/Caddyfile --adapter caddyfile &
-ss-server -s 127.0.0.1 -p 1234 -k $PASSWORD -m chacha20-ietf-poly1305 --plugin /usr/bin/v2ray-plugin_linux_amd64 --plugin-opts "server;path=/sspath" &
-gost -L ss+ws://AEAD_CHACHA20_POLY1305:$PASSWORD@127.0.0.1:2234?path=/gostpath &
-brook wsserver -l 127.0.0.1:3234 --path /brookpath -p $PASSWORD &
-/v2ray -config /v2ray.json
+[[ "$TOREnable"      ==    "true" ]]    &&    tor &
+
+[[ "$V2RAYEnable"    ==    "true" ]]    &&    /v2ray -config /v2ray.json &
+
+[[ "$BROOKEnable"    ==    "true" ]]    &&    brook wsserver -l 127.0.0.1:3234 --path $BROOKPATH -p $APASSWORD &
+
+[[ "$GOSTEnable"     ==    "true" ]]    &&    eval gost $GOSTMETHOD &
+
+[[ "$SSEnable"       ==    "true" ]]    &&    ss-server -s 127.0.0.1 -p 1234 -k $APASSWORD -m $SSENCYPT --plugin /usr/bin/v2ray-plugin_linux_amd64 --plugin-opts "server;path=$SSPATH" &
+
+caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
