@@ -8,10 +8,9 @@ RUN echo "http://dl-cdn.alpinelinux.org/alpine/edge/testing" >> /etc/apk/reposit
     wget -O - $gost_URL | gzip -d > /usr/bin/gost && \
     wget -O /usr/bin/brook https://github.com/txthinking/brook/releases/latest/download/brook_linux_amd64 && \
     wget -qO- https://github.com/v2fly/v2ray-core/releases/latest/download/v2ray-linux-64.zip | busybox unzip - && \
-    chmod +x /v2ray /v2ctl /usr/bin/gost /usr/bin/brook /usr/bin/v2ray-plugin_linux_amd64  && \
-    rm -rf /var/cache/apk/*
+    chmod +x /v2ray /v2ctl /usr/bin/gost /usr/bin/brook /usr/bin/v2ray-plugin_linux_amd64  \
 
-ADD start.sh /start.sh
+\
 RUN chmod +x /start.sh
 
 CMD /start.sh
